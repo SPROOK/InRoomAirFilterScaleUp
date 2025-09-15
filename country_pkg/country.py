@@ -25,16 +25,6 @@ class Country:
         if not row.empty:
             self.properties.update(row.iloc[0].to_dict())
 
-    def load_CR_Box(self):
-        from pathlib import Path
-        BASE_DIR = Path(__file__).resolve().parent.parent
-        csv_path = BASE_DIR / "data" / "CR_Box_Countries.csv"
-        self.load_properties_from_csv(csv_path, country_col="Country")
-
-    def add_property(self, key, value):
-        """Manually add a property to this country"""
-        self.properties[key] = value
-
     def __repr__(self):
         return f"<Country {self.name}, properties: {list(self.properties.keys())}>"
     
