@@ -24,9 +24,6 @@ class Country:
         row = df[df[country_col] == self.name]
         if not row.empty:
             self.properties.update(row.iloc[0].to_dict())
-
-    def __repr__(self):
-        return f"<Country {self.name}, properties: {list(self.properties.keys())}>"
     
     def summary(self):
         print(f"--- {self.name} ---")
