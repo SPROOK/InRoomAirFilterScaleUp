@@ -5,20 +5,11 @@ USE BELOW FOR CREATING COUNTRY CLASSES
 
 
 
-import sys
-import country_converter as coco
-import pandas as pd
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(BASE_DIR))
-
-country_list_csv = BASE_DIR / "data" / "STANDARD_COUNTRY_LIST.csv"
-
 def generate_countries_from_multiple_csvs(
     country_csv_path,
     cr_box_csv_path=None,
-    ecw_csv_path=None
+    ecw_csv_path=None,
+    baghouse_csv_path=None
 ):
     # ---------------- Main country CSV ----------------
     df = pd.read_csv(country_csv_path, encoding='cp1252')
@@ -43,6 +34,17 @@ def generate_countries_from_multiple_csvs(
         for col in required_ecw_cols:
             if col not in ecw_df.columns:
                 raise ValueError(f"ECW CSV must have a column named '{col}'")
+    
+    # ---------------- Baghouse Airflow CSV ----------------
+    baghouse_df = None
+    if baghouse_csv_path:
+        baghouse_df = pd.read_csv(baghouse_csv_path, encoding='cp1252')
+        required_baghouse_cols = ['Country', 'Operating MW']
+        for col in required_baghouse_cols:
+            if col not in baghouse_df.columns:
+                raise ValueError(f"Baghouse CSV must have a column named '{col}'")
+        # Standardize country names
+        baghouse_df["Country"] = baghouse_df["Country"].apply(Country._cc.convert, to="name_short")
     
     countries = {}
     
@@ -72,13 +74,18 @@ def generate_countries_from_multiple_csvs(
             ecw_row = ecw_df[ecw_df["Country Code"] == iso_code]
             if not ecw_row.empty:
                 for col in ecw_row.columns:
-                    if col != "Country Code":
-                        if col != "Country Name":
-                            c.properties[col] = ecw_row.iloc[0][col]
+                    if col not in ["Country Code", "Country Name"]:
+                        c.properties[col] = ecw_row.iloc[0][col]
+        
+        # ---------------- Merge Baghouse properties ----------------
+        if baghouse_df is not None:
+            standardized_name = Country._cc.convert(country_name, to="name_short")
+            baghouse_row = baghouse_df[baghouse_df["Country"] == standardized_name]
+            if not baghouse_row.empty:
+                c.properties["Baghouse Operating MW"] = baghouse_row.iloc[0]["Operating MW"]
+            else:
+                c.properties["Baghouse Operating MW"] = 0
         
         countries[iso_code] = c
     
     return countries
-
-
-from country_pkg import Country
