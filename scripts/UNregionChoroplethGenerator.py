@@ -3,7 +3,7 @@ import plotly.express as px
 import country_converter as coco
 
 def create_un_region_choropleth(df, region_col, value_col, title="UN Regions Choropleth Map", 
-                               color_scale="Viridis", width=1000, height=600):
+                               color_scale="RdYlGn", width=1000, height=600):
     
     # Initialize country converter
     cc = coco.CountryConverter()
@@ -41,7 +41,7 @@ def create_un_region_choropleth(df, region_col, value_col, title="UN Regions Cho
         labels={'value': 'Value', 'country_code': 'Country'}
     )
     
-    # Update layout
+    # Update layout - SINGLE consolidated update
     fig.update_layout(
         width=width,
         height=height,
@@ -49,19 +49,13 @@ def create_un_region_choropleth(df, region_col, value_col, title="UN Regions Cho
         geo=dict(
             showframe=False,
             showcoastlines=True,
+            showcountries=False,  # Remove country borders
+            showsubunits=False,   # Remove state/province borders
             projection_type='natural earth'
         )
     )
-    fig.update_traces(
-    marker_line_width=0  # This removes the borders around the colored regions
-    )
-    fig.update_layout(
-    geo=dict(
-        showcountries=False,
-        showcoastlines=True,
-        showframe=False,
-        projection_type='natural earth'
-    )
-    )
+    
+    # Remove borders between colored regions
+    fig.update_traces(marker_line_width=0)
     
     return fig
