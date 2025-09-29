@@ -52,5 +52,16 @@ def create_un_region_choropleth(df, region_col, value_col, title="UN Regions Cho
             projection_type='natural earth'
         )
     )
+    fig.update_traces(
+    marker_line_width=0  # This removes the borders around the colored regions
+    )
+    fig.update_layout(
+    geo=dict(
+        showcountries=False,
+        showcoastlines=True,
+        showframe=False,
+        projection_type='natural earth'
+    )
+    )
     
     return fig
