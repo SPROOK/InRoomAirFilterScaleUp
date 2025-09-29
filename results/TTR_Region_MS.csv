@@ -1,23 +1,23 @@
-Region,Weeks
-Caribbean,262
-Southern Asia,262
-Middle Africa,262
-Southern Europe,138
-Western Asia,262
-South America,262
-Polynesia,262
-Australia and New Zealand,177
-Western Europe,68
-Eastern Africa,262
-Western Africa,262
-Eastern Europe,262
-Central America,247
-Northern America,65
-South-eastern Asia,262
-Southern Africa,262
-Eastern Asia,150
-Northern Europe,15
-Northern Africa,262
-Melanesia,262
-Micronesia,262
-Central Asia,262
+Region,ECW POLL in Weeks,ECW ILO in Weeks
+Caribbean,262,262
+Southern Asia,262,262
+Middle Africa,262,262
+Southern Europe,138,262
+Western Asia,262,262
+South America,262,262
+Polynesia,262,262
+Australia and New Zealand,177,262
+Western Europe,68,146
+Eastern Africa,262,262
+Western Africa,262,262
+Eastern Europe,262,262
+Central America,247,262
+Northern America,65,151
+South-eastern Asia,262,262
+Southern Africa,262,262
+Eastern Asia,150,262
+Northern Europe,15,37
+Northern Africa,262,262
+Melanesia,262,262
+Micronesia,262,262
+Central Asia,262,262
