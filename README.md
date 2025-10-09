@@ -3,20 +3,20 @@ A scale up simulation of various in room filtration systems that could protect c
 
 ---
 
-## Project Structure
-- [Data](#data)
-- [Results](#results)
-- [Scripts](#scripts)
-- [SRC](#src)
-
----
-
 ## Overview
 This git repository holds the code for the In Room Air Filtration ANU Capstone group in partnership with ALLFED. It contains the data processing and analysis of our simulations of scale up in room systems as well as our critical worker estimation given an extreme pandemic scenario. For more information, visit the ANU Capstone team's repositiory and landing page. 
 
 Landing Page: https://sites.google.com/view/anu-capstone-air-filtration/home 
 
 Repository: https://drive.google.com/drive/folders/1PC_QixM3_B3nh0tNhnJJnPxHECVEsJI7
+
+---
+
+## Project Structure
+- [Data](#data)
+- [Results](#results)
+- [Scripts](#scripts)
+- [SRC](#src)
 
 ---
 
