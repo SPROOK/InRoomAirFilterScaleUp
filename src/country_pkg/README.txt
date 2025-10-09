@@ -1,10 +1,5 @@
 USE BELOW FOR CREATING COUNTRY CLASSES
 
-
-
-
-
-
 def generate_countries_from_multiple_csvs(
     country_csv_path,
     cr_box_csv_path=None,
