@@ -238,4 +238,4 @@ def create_un_region_choropleth_deco(df, region_col, value_col,
         marker_line_color='rgba(255,255,255,0.3)'
     )
     
-    return fig
+    return fig 
