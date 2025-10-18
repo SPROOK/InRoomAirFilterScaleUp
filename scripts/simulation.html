@@ -60,17 +60,47 @@
 
   <script>
   // --------- Data & state ----------
-  let BUNDLE = JSON.parse(document.getElementById('bundle').textContent);
+  let BUNDLE = JSON.parse(document.getElementById('bundle').textContent || '{}');
   let PLAYING = false, PLAY_TMR = null;
+
+  // Guard: empty bundle
+  if (!BUNDLE.weeks || !BUNDLE.datasets) {
+    console.error('No data bundle found');
+    BUNDLE = {weeks:[], un_regions:[], region_to_iso:{}, datasets:{}};
+  }
+
+  // Real weeks to use (drop 0,1 and 55)
+  const WEEKS = (BUNDLE.weeks || []).map(Number).filter(w => w >= 3 && w <= 54);
+
+  // Sanitize: physically remove bad weeks from every dataset/region
+  (function sanitizeBundle() {
+    const keep = new Set(WEEKS.map(String)); // "3".."54"
+    for (const dsName of Object.keys(BUNDLE.datasets)) {
+      const ds = BUNDLE.datasets[dsName];
+      for (const region of Object.keys(ds)) {
+        const series = ds[region];
+        for (const wk of Object.keys(series)) {
+          if (!keep.has(wk)) delete series[wk];
+        }
+      }
+    }
+  })();
+
+  // Display mapping: 3..54  →  1..52 (user-facing labels)
+  const DISPLAY_WEEKS = WEEKS.map((_, i) => i + 1);
+  const weekToDisplay = (w) => {
+    const i = WEEKS.indexOf(Number(w));
+    return i === -1 ? '' : (i + 1); // 1-based index
+  };
 
   // --------- Helpers ----------
   function regionSeriesAtWeek(datasetName, week) {
-    const ds = BUNDLE.datasets[datasetName];
+    const ds = BUNDLE.datasets[datasetName] || {};
     const map = {};
-    for (const region of BUNDLE.un_regions) {
+    for (const region of BUNDLE.un_regions || []) {
       const series = ds[region] || {};
       const val = series[String(week)];
-      const isoList = BUNDLE.region_to_iso[region] || [];
+      const isoList = (BUNDLE.region_to_iso || {})[region] || [];
       for (const iso of isoList) map[iso] = (typeof val === 'number') ? val : null;
     }
     return map;
@@ -78,11 +108,15 @@
 
   function datasetRange(datasetName) {
     let mn = Infinity, mx = -Infinity;
-    const ds = BUNDLE.datasets[datasetName];
+    const ds = BUNDLE.datasets[datasetName] || {};
     for (const region in ds) {
-      for (const wk in ds[region]) {
-        const v = ds[region][wk];
-        if (typeof v === 'number') { mn = Math.min(mn, v); mx = Math.max(mx, v); }
+      const series = ds[region];
+      for (const wk in series) {
+        // series is already sanitized to 3..54, but keep this just in case
+        const n = Number(wk);
+        if (n < 3 || n > 54) continue;
+        const v = series[wk];
+        if (typeof v === 'number') { if (v < mn) mn = v; if (v > mx) mx = v; }
       }
     }
     if (!isFinite(mn)) { mn = 0; mx = 1; }
@@ -103,62 +137,81 @@
         }
       }
     }
+
+    // ranges
     const [vmin, vmax] = datasetRange(datasetName);
+
+    // colors
+    const isPct = (datasetName === "ECW Coverage %");
+    const colorscale = isPct ? 'RdYlGn' : [[0,'#eef8ee'], [1,'#006400']]; // green=high for %; deep green for ALL
+
     const data = [{
-      type:'choropleth',
+      type: 'choropleth',
+      locationmode: 'ISO-3',
       locations, z, text,
-      locationmode:'ISO-3',
-      colorbar:{title: datasetName},
       zmin: vmin, zmax: vmax,
-      colorscale: (datasetName === "ALL" ? [[0,'#ffffff'],[1,'#006400']] : [[0,'#ffffff'],[1,'#ffa500']])
+      colorscale,
+      // never reverse – we want low=red, high=green for ECW
+      reversescale: false,
+      colorbar: {
+        title: isPct ? 'Percentage' : datasetName,
+        ticksuffix: isPct ? '%' : ''
+      },
+      hovertemplate: isPct
+        ? '%{text}<br>%{location}<br>%{z:.1f}%<extra></extra>'
+        : '%{text}<br>%{location}<br>%{z:.0f} L/s<extra></extra>'
     }];
+
     const layout = {
-      title: datasetName + " (Week " + week + ")",
-      geo:{projection:{type:'natural earth'}},
-      margin:{l:0,r:0,t:40,b:0},
-      height:540
+      title: `${datasetName} (Week ${weekToDisplay(week)})`,
+      geo: { projection: { type: 'natural earth' } },
+      margin: { l:0, r:0, t:40, b:0 },
+      height: 540
     };
-    Plotly.react('map', data, layout, {responsive:true, displaylogo:false});
+    Plotly.react('map', data, layout, { responsive:true, displaylogo:false });
   }
 
+
   function buildSeries(datasetName, regions, cadrpp) {
-    const weeks = BUNDLE.weeks.map(w => Number(w));
+    const weeks = WEEKS;                 // real weeks: 3..54
+    const xDisplay = DISPLAY_WEEKS;      // labels: 1..52
     const traces = [];
-    const showECW = datasetName !== "ECW Coverage %";
+    const showECWBand = datasetName !== "ECW Coverage %";
 
     for (const region of regions) {
-      const series = BUNDLE.datasets[datasetName][region] || {};
+      const series = (BUNDLE.datasets[datasetName] || {})[region] || {};
       const y = weeks.map(w => series[String(w)] ?? null);
       traces.push({
-        x: weeks, y,
+        x: xDisplay, y,
         type:'scatter', mode:'lines',
-        name: region + " (" + datasetName + ")",
+        name: `${region} (${datasetName})`,
         line:{width:2}
       });
     }
 
+    // ECW band aligned to the 1..52 x axis
     const shapes = [];
-    if (showECW) {
+    if (showECWBand) {
+      const x0 = xDisplay[0], x1 = xDisplay[xDisplay.length - 1];
       for (const region of regions) {
-        const per = BUNDLE.ecw_per_person[region];
+        const per = (BUNDLE.ecw_per_person || {})[region];
         if (!per) continue;
         const lower = per.lower * cadrpp;
         const upper = per.upper * cadrpp;
 
         shapes.push({type:'rect', xref:'x', yref:'y',
-          x0:weeks[0], x1:weeks[weeks.length-1],
-          y0:lower, y1:upper, fillcolor:'rgba(0,128,0,0.10)', line:{width:0}});
-        shapes.push({type:'line', x0:weeks[0], x1:weeks[weeks.length-1], y0:lower, y1:lower,
-          line:{dash:'dash', color:'lime'}});
-        shapes.push({type:'line', x0:weeks[0], x1:weeks[weeks.length-1], y0:upper, y1:upper,
-          line:{dash:'dash', color:'orange'}});
+          x0, x1, y0:lower, y1:upper, fillcolor:'rgba(0,128,0,0.10)', line:{width:0}});
+        shapes.push({type:'line', xref:'x', yref:'y',
+          x0, x1, y0:lower, y1:lower, line:{dash:'dash', color:'lime'}});
+        shapes.push({type:'line', xref:'x', yref:'y',
+          x0, x1, y0:upper, y1:upper, line:{dash:'dash', color:'orange'}});
       }
     }
 
     const layout = {
-      title: datasetName + " vs ECW Range (CADRPP=" + cadrpp.toFixed(1) + " L/s)",
-      xaxis:{title:'Weeks'},
-      yaxis:{title:(datasetName === "ECW Coverage %") ? '%' : 'Air Flow (L/s)'},
+      title: `${datasetName} vs ECW Range (CADRPP=${cadrpp.toFixed(1)} L/s)`,
+      xaxis:{title:'Weeks', tickmode:'array', tickvals:xDisplay, ticktext:xDisplay},
+      yaxis:{ title: (datasetName === "ECW Coverage %") ? '%' : 'Air Flow (L/s)' },
       legend:{orientation:'h'},
       margin:{l:50,r:20,t:60,b:50},
       height:520,
@@ -170,7 +223,7 @@
   // --------- UI wiring ----------
   function init() {
     const regionsSel = document.getElementById('regions');
-    BUNDLE.un_regions.forEach(r => {
+    (BUNDLE.un_regions || []).forEach(r => {
       const opt = document.createElement('option');
       opt.value = r; opt.textContent = r;
       regionsSel.appendChild(opt);
@@ -181,10 +234,15 @@
     });
 
     const weekInput = document.getElementById('week');
-    weekInput.max = String(BUNDLE.weeks.length);
-    weekInput.value = "1";
-    document.getElementById('weekLabel').textContent =
-      " " + weekInput.value + " / " + BUNDLE.weeks.length;
+    weekInput.min = String(WEEKS[0]);                  // 3
+    weekInput.max = String(WEEKS[WEEKS.length - 1]);   // 54
+    weekInput.step = "1";
+    weekInput.value = String(WEEKS[0]);                // start at 3
+
+    const setWeekLabel = () => {
+      const idx = WEEKS.indexOf(Number(weekInput.value)) + 1; // 1..52
+      document.getElementById('weekLabel').textContent = ` Week ${idx} / ${WEEKS.length}`;
+    };
 
     const renderAll = () => {
       const ds = document.getElementById('dataset').value;
@@ -193,10 +251,10 @@
       const regions = Array.from(regionsSel.selectedOptions).map(o => o.value);
       buildMap(ds, wk);
       buildSeries(ds, regions, cadrpp);
-      document.getElementById('weekLabel').textContent =
-        " " + wk + " / " + BUNDLE.weeks.length;
+      setWeekLabel();
     };
 
+    setWeekLabel();
     document.getElementById('dataset').addEventListener('change', renderAll);
     document.getElementById('cadrpp').addEventListener('change', renderAll);
     document.getElementById('applyCADRPP').addEventListener('click', renderAll);
@@ -213,9 +271,10 @@
       PLAYING = true;
       document.getElementById('play').textContent = '⏸ Pause';
       PLAY_TMR = setInterval(() => {
-        let v = Number(weekInput.value);
-        v = (v >= BUNDLE.weeks.length) ? 1 : (v + 1);
-        weekInput.value = String(v);
+        const cur = Number(weekInput.value);
+        const i = WEEKS.indexOf(cur);
+        const next = (i === -1 || i === WEEKS.length - 1) ? WEEKS[0] : WEEKS[i + 1];
+        weekInput.value = String(next);
         weekInput.dispatchEvent(new Event('input'));
       }, 500);
     });
